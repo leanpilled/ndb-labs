@@ -1,0 +1,141 @@
+---
+# 1) Backup a single database
+#      ansible-playbook mongodb-backup.yml --tags backup_one -e 'backup_database=myapp'
+#
+# 2) Backup all databases except admin/local/config
+#      ansible-playbook mongodb-backup.yml --tags backup_all
+#
+# 3) Restore a collection after it was deleted, from the most recent backup
+#      ansible-playbook mongodb-backup.yml --tags restore_collection \
+#        -e 'restore_database=myapp restore_collection=orders'
+
+- name: Backup and restore MongoDB lab databases
+  hosts: mongodb
+  become: true
+  gather_facts: true
+
+  vars:
+    mongodb_host: 127.0.0.1
+    mongodb_port: 27017
+
+    mongodb_tools_version: "100.19.1"
+    mongodb_tools_arch: "arm64"
+    mongodb_tools_platform: "ubuntu2604"
+    mongodb_tools_tarball: "mongodb-database-tools-{{ mongodb_tools_platform }}-{{ mongodb_tools_arch }}-{{ mongodb_tools_version }}.tgz"
+    mongodb_tools_tarball_local_path: "{{ playbook_dir }}/distfiles/{{ mongodb_tools_tarball }}"
+    mongodb_tools_install_dir: "/opt/mongodb-database-tools-{{ mongodb_tools_platform }}-{{ mongodb_tools_arch }}-{{ mongodb_tools_version }}"
+
+    mongodb_backup_root: /var/backups/mongodb
+    backup_timestamp: "{{ ansible_facts['date_time']['iso8601_basic_short'] }}"
+
+    # backup_one
+    backup_database: "myapp"
+
+    # restore_collection
+    restore_database: "myapp"
+    restore_collection: "users"
+
+  tasks:
+    - name: Check if MongoDB database tools are already extracted
+      ansible.builtin.stat:
+        path: "{{ mongodb_tools_install_dir }}/bin/mongodump"
+      register: mongodb_tools_extracted
+      tags: [always]
+
+    - name: Copy and extract MongoDB database tools tarball
+      ansible.builtin.unarchive:
+        src: "{{ mongodb_tools_tarball_local_path }}"
+        dest: /opt
+      when: not mongodb_tools_extracted.stat.exists
+      tags: [always]
+
+    - name: Link mongodump/mongorestore into PATH
+      ansible.builtin.file:
+        src: "{{ mongodb_tools_install_dir }}/bin/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        state: link
+        force: true
+      loop:
+        - mongodump
+        - mongorestore
+      tags: [always]
+
+    - name: Ensure the backup root directory exists
+      ansible.builtin.file:
+        path: "{{ mongodb_backup_root }}"
+        state: directory
+        mode: "0755"
+      tags: [always]
+
+    - name: Backup a single database
+      ansible.builtin.command:
+        cmd: >
+          mongodump
+          --host={{ mongodb_host }}
+          --port={{ mongodb_port }}
+          --db={{ backup_database }}
+          --out={{ mongodb_backup_root }}/{{ backup_timestamp }}
+      changed_when: true
+      tags: [backup_one, never]
+
+    - name: Report where the single-database backup was written
+      ansible.builtin.debug:
+        msg: "Backed up database '{{ backup_database }}' to {{ mongodb_backup_root }}/{{ backup_timestamp }}"
+      tags: [backup_one, never]
+
+    - name: Discover databases (exclude admin/local/config)
+      ansible.builtin.command:
+        cmd: >
+          mongosh --quiet --host={{ mongodb_host }} --port={{ mongodb_port }}
+          --eval 'db.adminCommand("listDatabases").databases.map(d => d.name).filter(n => !["admin","local","config"].includes(n)).join(",")'
+      register: lab_databases_raw
+      changed_when: false
+      tags: [backup_all, never]
+
+    - name: Set fact with the list of lab databases
+      ansible.builtin.set_fact:
+        lab_databases: "{{ lab_databases_raw.stdout | trim | split(',') | reject('equalto', '') | list }}"
+      tags: [backup_all, never]
+
+    - name: Backup each database
+      ansible.builtin.command:
+        cmd: >
+          mongodump
+          --host={{ mongodb_host }}
+          --port={{ mongodb_port }}
+          --db={{ item }}
+          --out={{ mongodb_backup_root }}/{{ backup_timestamp }}
+      loop: "{{ lab_databases }}"
+      changed_when: true
+      tags: [backup_all, never]
+
+    - name: Report where the full backup was written
+      ansible.builtin.debug:
+        msg: "Backed up databases {{ lab_databases }} to {{ mongodb_backup_root }}/{{ backup_timestamp }}"
+      tags: [backup_all, never]
+
+    - name: Find the most recent backup directory
+      ansible.builtin.shell:
+        cmd: "ls -1 {{ mongodb_backup_root }} | sort | tail -n 1"
+      register: latest_backup_dir
+      changed_when: false
+      failed_when: latest_backup_dir.stdout | trim == ""
+      tags: [restore_collection, never]
+
+    - name: Restore the collection from the most recent backup
+      ansible.builtin.command:
+        cmd: >
+          mongorestore
+          --host={{ mongodb_host }}
+          --port={{ mongodb_port }}
+          --db={{ restore_database }}
+          --collection={{ restore_collection }}
+          --drop
+          {{ mongodb_backup_root }}/{{ latest_backup_dir.stdout | trim }}/{{ restore_database }}/{{ restore_collection }}.bson
+      changed_when: true
+      tags: [restore_collection, never]
+
+    - name: Report the restore result
+      ansible.builtin.debug:
+        msg: "Restored '{{ restore_database }}.{{ restore_collection }}' from backup {{ latest_backup_dir.stdout | trim }}"
+      tags: [restore_collection, never]
