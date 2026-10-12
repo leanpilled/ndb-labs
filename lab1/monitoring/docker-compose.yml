@@ -1,0 +1,70 @@
+---
+# Monitoring stack for the lab MongoDB instance.
+#
+# Runs entirely on the host (NOT on the mongodb VM): a Prometheus-compatible
+# exporter scrapes the VM's mongod over the network, Prometheus stores the
+# metrics, and Grafana displays a pre-provisioned custom dashboard.
+#
+# Requires mongod on the VM to bind to 0.0.0.0 (see install-mongodb.yml /
+# mongodb_bind_ip) so this host can reach it at mongodb_host:27017.
+#
+# Usage:
+#   cd monitoring
+#   docker compose up -d
+#   open http://localhost:3000   (Grafana, default login admin/admin)
+
+services:
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.44
+    container_name: mongodb-exporter
+    restart: unless-stopped
+    command:
+      - --mongodb.uri=mongodb://192.168.252.2:27017
+      - --collector.diagnosticdata
+      - --collector.dbstats
+      - --web.listen-address=:9216
+    ports:
+      - "9216:9216"
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - mongodb-exporter
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana-oss:11.3.1
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:

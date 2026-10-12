@@ -1,0 +1,174 @@
+---
+# 1) Create a custom role / change its permitted operations
+#      ansible-playbook manage-rbac.yml --tags create_role \
+#        -e '{"role_name":"appReadWrite","role_database":"myapp",
+#             "role_privileges":[{"resource":{"db":"myapp","collection":""},
+#                                 "actions":["find","insert","update","remove"]}]}'
+#
+#      ansible-playbook manage-rbac.yml --tags update_role \
+#        -e '{"role_name":"appReadWrite","role_database":"myapp",
+#             "role_privileges":[{"resource":{"db":"myapp","collection":""},
+#                                 "actions":["find"]}]}'
+#
+# 2) Assign role(s) to a user (creates the user if it does not exist yet)
+#      ansible-playbook manage-rbac.yml --tags assign_role \
+#        -e '{"target_user":"appuser","target_user_password":"Secret123!",
+#             "target_user_auth_db":"myapp",
+#             "user_roles":[{"db":"myapp","role":"appReadWrite"}]}'
+#
+# 3) Revoke role(s) from a user (pass the roles list the user should end up with, without the revoked role)
+#      ansible-playbook manage-rbac.yml --tags revoke_role \
+#        -e '{"target_user":"appuser","target_user_auth_db":"myapp",
+#             "user_roles_revoked":[]}'
+#
+# 4) Grant a user access to a single collection
+#      ansible-playbook manage-rbac.yml --tags grant_collection_access \
+#        -e '{"collection_database":"myapp","collection_name":"orders",
+#             "collection_actions":["find"],"collection_user":"ordersviewer",
+#             "collection_user_password":"Secret123!"}'
+#
+# 5) Delete a role and a user
+#      ansible-playbook manage-rbac.yml --tags cleanup \
+#        -e '{"cleanup_role_name":"appReadWrite","cleanup_role_database":"myapp",
+#             "cleanup_user":"appuser","cleanup_user_auth_db":"myapp"}'
+
+- name: Manage MongoDB roles and users
+  hosts: mongodb
+  become: false
+  gather_facts: false
+
+  vars:
+    login_host: 127.0.0.1
+    mongodb_port: 27017
+
+    # create_role / update_role
+    role_name: "appReadWrite"
+    role_database: "myapp"
+    role_privileges:
+      - resource:
+          db: "myapp"
+          collection: ""
+        actions:
+          - find
+          - insert
+          - update
+          - remove
+
+    # assign_role
+    target_user: "appuser"
+    target_user_password: "ChangeMe123!"
+    target_user_auth_db: "myapp"
+    user_roles:
+      - { db: "myapp", role: "appReadWrite" }
+
+    # revoke_role
+    user_roles_revoked: []
+
+    # grant_collection_access
+    collection_role_name: "ordersReadOnly"
+    collection_database: "myapp"
+    collection_name: "orders"
+    collection_actions:
+      - find
+    collection_user: "ordersviewer"
+    collection_user_password: "ChangeMe123!"
+
+    # cleanup
+    cleanup_role_name: "{{ role_name }}"
+    cleanup_role_database: "{{ role_database }}"
+    cleanup_user: "{{ target_user }}"
+    cleanup_user_auth_db: "{{ target_user_auth_db }}"
+
+  tasks:
+    - name: Ensure pip is installed
+      become: true
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+      tags: [always]
+
+    - name: Ensure pymongo is installed (required by community.mongodb modules)
+      become: true
+      ansible.builtin.pip:
+        name: pymongo
+        state: present
+        extra_args: --break-system-packages
+      tags: [always]
+
+    - name: Create or update a custom role with a specific set of permitted operations
+      community.mongodb.mongodb_role:
+        login_host: "{{ login_host }}"
+        login_port: "{{ mongodb_port }}"
+        name: "{{ role_name }}"
+        database: "{{ role_database }}"
+        privileges: "{{ role_privileges }}"
+        state: present
+      tags: [create_role, update_role, never]
+
+    - name: Assign role(s) to a user, creating the user if needed
+      community.mongodb.mongodb_user:
+        login_host: "{{ login_host }}"
+        login_port: "{{ mongodb_port }}"
+        name: "{{ target_user }}"
+        password: "{{ target_user_password }}"
+        database: "{{ target_user_auth_db }}"
+        update_password: on_create
+        roles: "{{ user_roles }}"
+        state: present
+      tags: [assign_role, never]
+
+    - name: Revoke role(s) from a user
+      community.mongodb.mongodb_user:
+        login_host: "{{ login_host }}"
+        login_port: "{{ mongodb_port }}"
+        name: "{{ target_user }}"
+        database: "{{ target_user_auth_db }}"
+        update_password: on_create
+        roles: "{{ user_roles_revoked }}"
+        state: present
+      tags: [revoke_role, never]
+
+    - name: Create a role scoped to a single collection only
+      community.mongodb.mongodb_role:
+        login_host: "{{ login_host }}"
+        login_port: "{{ mongodb_port }}"
+        name: "{{ collection_role_name }}"
+        database: "{{ collection_database }}"
+        privileges:
+          - resource:
+              db: "{{ collection_database }}"
+              collection: "{{ collection_name }}"
+            actions: "{{ collection_actions }}"
+        state: present
+      tags: [grant_collection_access, never]
+
+    - name: Create/ensure the user and grant only the collection-scoped role
+      community.mongodb.mongodb_user:
+        login_host: "{{ login_host }}"
+        login_port: "{{ mongodb_port }}"
+        name: "{{ collection_user }}"
+        password: "{{ collection_user_password }}"
+        database: "{{ collection_database }}"
+        update_password: on_create
+        roles:
+          - { db: "{{ collection_database }}", role: "{{ collection_role_name }}" }
+        state: present
+      tags: [grant_collection_access, never]
+
+    - name: Delete the user
+      community.mongodb.mongodb_user:
+        login_host: "{{ login_host }}"
+        login_port: "{{ mongodb_port }}"
+        name: "{{ cleanup_user }}"
+        database: "{{ cleanup_user_auth_db }}"
+        state: absent
+      tags: [cleanup, never]
+
+    - name: Delete the role
+      community.mongodb.mongodb_role:
+        login_host: "{{ login_host }}"
+        login_port: "{{ mongodb_port }}"
+        name: "{{ cleanup_role_name }}"
+        database: "{{ cleanup_role_database }}"
+        state: absent
+      tags: [cleanup, never]
