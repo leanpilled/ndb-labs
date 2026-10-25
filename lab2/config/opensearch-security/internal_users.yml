@@ -1,0 +1,32 @@
+---
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+admin:
+  hash: "$2y$12$DvW6oIEDD3xPJIOKLQlyp.IzHKl3JdWzSs2dHBGTVLm/6dG5804a."
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Cluster admin user"
+
+kibanaserver:
+  hash: "$2y$12$fGUJq3TUahBlO6zD4FG2KOANvCsLGg34QkRQSZOi/gbVGCnUz92LG"
+  reserved: true
+  description: "OpenSearch Dashboards service account"
+
+
+writer_user:
+  hash: "$2y$12$AsE2QPjqILSyBH9sXvYvp.9JICY58ZLAYCjoaJgTKLztGMR2nonn2"
+  reserved: false
+  description: Write-only user for logs data stream
+
+reader_user:
+  hash: "$2y$12$GITHGnX0KkEJSqk1ZVx7QeTcMaZ5O6kecso0q5lvSqhHmWZPV4626"
+  reserved: false
+  description: Read-only user for logs* indices
+
+monitor_user:
+  hash: "$2y$12$opFys5rLsNXSooRdUeo6UeSeh7/WmxmzjkJ3zIWrD9gOdwWXEphse"
+  reserved: false
+  description: Cluster/node metrics monitoring user

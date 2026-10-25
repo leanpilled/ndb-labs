@@ -1,0 +1,119 @@
+{
+  "title": "OpenSearch lab2 — cluster & node metrics",
+  "uid": "opensearch-lab2",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Cluster status",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "opensearch_cluster_status", "legendFormat": "status" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "GREEN", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "YELLOW", "color": "yellow" } } },
+            { "type": "value", "options": { "2": { "text": "RED", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 2 }
+          ]}
+        }, "overrides": []
+      }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Nodes / data nodes",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "opensearch_cluster_nodes_number", "legendFormat": "nodes" },
+        { "expr": "opensearch_cluster_datanodes_number", "legendFormat": "data nodes" }
+      ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Pending tasks",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "opensearch_cluster_pending_tasks_number", "legendFormat": "pending" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Active shards %",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "expr": "opensearch_cluster_shards_active_percent", "legendFormat": "active %" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 }, "overrides": [] }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Shards by type",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [{ "expr": "opensearch_cluster_shards_number", "legendFormat": "{{type}}" }]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "JVM heap used % by node",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [{ "expr": "opensearch_jvm_mem_heap_used_percent", "legendFormat": "{{node}}" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 }, "overrides": [] }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Process CPU % by node",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [{ "expr": "opensearch_process_cpu_percent", "legendFormat": "{{node}}" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 }, "overrides": [] }
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Disk free % by node",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [{ "expr": "100 * opensearch_fs_total_available_bytes / opensearch_fs_total_total_bytes", "legendFormat": "{{node}}" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100 }, "overrides": [] }
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "GC time rate by node (s/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "targets": [{ "expr": "rate(opensearch_jvm_gc_collection_time_seconds[2m])", "legendFormat": "{{node}}-{{gc}}" }]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Indexing rate (docs/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "targets": [{ "expr": "sum(rate(opensearch_indices_indexing_index_count[2m]))", "legendFormat": "index rate" }]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "Search query rate (queries/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
+      "targets": [{ "expr": "sum(rate(opensearch_indices_search_query_count[2m]))", "legendFormat": "search rate" }]
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Index store size (.ds-logs-*)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
+      "targets": [
+        {
+          "expr": "max by (index) (opensearch_index_store_size_bytes{index=~\".ds-logs-.*\"})",
+          "legendFormat": "{{index}}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        { "id": "organize", "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "cluster": true, "nodeid": true },
+            "renameByName": {
+              "index": "Index",
+              "node": "Node",
+              "Value": "Store size"
+            }
+        }},
+        { "id": "sortBy", "options": { "fields": {}, "sort": [{ "field": "Index", "desc": true }] } }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Store size" },
+            "properties": [{ "id": "unit", "value": "bytes" }] }
+        ]
+      }
+    }
+  ]
+}
