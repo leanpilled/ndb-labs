@@ -1,0 +1,4 @@
+.env
+certs/*-key.pem
+certs/*.srl
+prometheus/secrets/
