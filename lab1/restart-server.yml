@@ -1,0 +1,32 @@
+---
+- name: Reboot the VM and verify MongoDB is available
+  hosts: mongodb
+  become: true
+  gather_facts: false
+
+  vars:
+    mongodb_port: 27017
+
+  tasks:
+    - name: Reboot the server
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+        connect_timeout: 10
+        post_reboot_delay: 10
+
+    - name: Wait for mongod to accept connections
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ mongodb_port }}"
+        delay: 2
+        timeout: 120
+
+    - name: Verify MongoDB responds to a ping
+      ansible.builtin.command:
+        cmd: 'mongosh --quiet --eval "db.runCommand({ ping: 1 })"'
+      register: mongo_ping
+      changed_when: false
+
+    - name: Report MongoDB status
+      ansible.builtin.debug:
+        msg: "MongoDB is up and answering: {{ mongo_ping.stdout }}"

@@ -1,0 +1,141 @@
+---
+- name: Install and configure MongoDB (from tarball)
+  hosts: mongodb
+  become: true
+  gather_facts: true
+
+  vars:
+    mongodb_version: "9.0.2"
+    mongodb_arch: "aarch64"
+    mongodb_platform: "ubuntu2404"
+    mongodb_tarball: "mongodb-linux-{{ mongodb_arch }}-{{ mongodb_platform }}-{{ mongodb_version }}.tgz"
+    mongodb_tarball_local_path: "{{ playbook_dir }}/distfiles/{{ mongodb_tarball }}"
+    mongodb_install_dir: "/opt/mongodb-linux-{{ mongodb_arch }}-{{ mongodb_platform }}-{{ mongodb_version }}"
+    mongodb_home: "/opt/mongodb"
+    mongodb_bind_ip: "0.0.0.0"
+    mongodb_port: 27017
+    mongodb_db_path: "/var/lib/mongodb"
+    mongodb_log_path: "/var/log/mongodb/mongod.log"
+    mongosh_version: "2.12.0"
+    mongosh_tarball: "mongosh-{{ mongosh_version }}-linux-arm64.tgz"
+    mongosh_tarball_local_path: "{{ playbook_dir }}/distfiles/{{ mongosh_tarball }}"
+    mongosh_install_dir: "/opt/mongosh-{{ mongosh_version }}-linux-arm64"
+
+  tasks:
+    - name: Install tzdata (required by tarball installs)
+      ansible.builtin.apt:
+        name: tzdata
+        state: present
+
+    - name: Create mongodb group
+      ansible.builtin.group:
+        name: mongodb
+        state: present
+
+    - name: Create mongodb user
+      ansible.builtin.user:
+        name: mongodb
+        group: mongodb
+        home: "{{ mongodb_db_path }}"
+        shell: /usr/sbin/nologin
+        system: true
+        create_home: false
+        state: present
+
+    - name: Check if MongoDB is already extracted
+      ansible.builtin.stat:
+        path: "{{ mongodb_install_dir }}/bin/mongod"
+      register: mongodb_extracted
+
+    - name: Copy and extract MongoDB tarball
+      ansible.builtin.unarchive:
+        src: "{{ mongodb_tarball_local_path }}"
+        dest: /opt
+      when: not mongodb_extracted.stat.exists
+
+    - name: Link /opt/mongodb to install dir
+      ansible.builtin.file:
+        src: "{{ mongodb_install_dir }}"
+        dest: "{{ mongodb_home }}"
+        state: link
+        force: true
+
+    - name: Add MongoDB binaries to PATH
+      ansible.builtin.file:
+        src: "{{ mongodb_home }}/bin/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        state: link
+        force: true
+      loop:
+        - mongod
+        - mongos
+
+    - name: Check if mongosh is already extracted
+      ansible.builtin.stat:
+        path: "{{ mongosh_install_dir }}/bin/mongosh"
+      register: mongosh_extracted
+
+    - name: Copy and extract mongosh tarball
+      ansible.builtin.unarchive:
+        src: "{{ mongosh_tarball_local_path }}"
+        dest: /opt
+      when: not mongosh_extracted.stat.exists
+
+    - name: Link mongosh into PATH
+      ansible.builtin.file:
+        src: "{{ mongosh_install_dir }}/bin/mongosh"
+        dest: /usr/local/bin/mongosh
+        state: link
+        force: true
+
+    - name: Create data and log directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: mongodb
+        group: mongodb
+        mode: "0755"
+      loop:
+        - "{{ mongodb_db_path }}"
+        - "/var/log/mongodb"
+
+    - name: Deploy mongod.conf
+      ansible.builtin.template:
+        src: mongod.conf.j2
+        dest: /etc/mongod.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart mongod
+
+    - name: Deploy systemd service
+      ansible.builtin.template:
+        src: mongod.service.j2
+        dest: /etc/systemd/system/mongod.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart mongod
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable and start mongod service
+      ansible.builtin.systemd:
+        name: mongod
+        enabled: true
+        state: started
+
+    - name: Wait for mongod to accept connections
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ mongodb_port }}"
+        delay: 2
+        timeout: 30
+
+  handlers:
+    - name: Restart mongod
+      ansible.builtin.systemd:
+        name: mongod
+        state: restarted

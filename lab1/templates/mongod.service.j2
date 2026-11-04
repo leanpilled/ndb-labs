@@ -1,0 +1,17 @@
+[Unit]
+Description=MongoDB Database Server
+Documentation=https://www.mongodb.com/docs/manual
+After=network.target
+
+[Service]
+User=mongodb
+Group=mongodb
+ExecStart={{ mongodb_home }}/bin/mongod --config /etc/mongod.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+LimitNOFILE=64000
+LimitNPROC=64000
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
