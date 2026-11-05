@@ -1,0 +1,208 @@
+{
+  "title": "Lab 3 — Cache Invalidation: App & Redis",
+  "uid": "lab3-cache-invalidation",
+  "tags": ["lab3", "redis", "fastapi", "cache"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP Request Rate (per instance)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m])) by (instance)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP Latency p95 (per instance)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, instance))",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "HTTP Error Rate (5xx)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+          "legendFormat": "error rate",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Cache Hit Ratio",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "green", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(cache_hits_total[1m])) / clamp_min(sum(rate(cache_hits_total[1m])) + sum(rate(cache_misses_total[1m])), 1e-9)",
+          "legendFormat": "hit ratio",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Cache Hits vs Misses (per instance)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hits_total[1m])) by (instance)",
+          "legendFormat": "{{instance}} hits",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(cache_misses_total[1m])) by (instance)",
+          "legendFormat": "{{instance}} misses",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Cache Invalidations via Pub/Sub (per instance)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_invalidations_total[1m])) by (instance)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Local Cache Size (per instance)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "cache_size",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Redis Connected Clients",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "redis_connected_clients",
+          "legendFormat": "clients",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Redis Memory Used",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes",
+          "legendFormat": "used memory",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Redis Commands by Type (incl. PUBLISH/SUBSCRIBE)",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 24, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(redis_commands_total[1m])) by (cmd)",
+          "legendFormat": "{{cmd}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Redis Pub/Sub Channels",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 8, "y": 24, "w": 8, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "redis_pubsub_channels",
+          "legendFormat": "channels",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
