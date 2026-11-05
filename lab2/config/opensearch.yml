@@ -1,0 +1,25 @@
+---
+cluster.name: lab2-cluster
+
+network.host: 0.0.0.0
+
+discovery.seed_hosts: ["os-manager", "os-hot1", "os-hot2", "os-warm1"]
+cluster.initial_cluster_manager_nodes: ["os-manager"]
+
+plugins.security.ssl.transport.pemcert_filepath: certs/node.pem
+plugins.security.ssl.transport.pemkey_filepath: certs/node-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/root-ca.pem
+plugins.security.ssl.transport.enforce_hostname_verification: false
+
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/node.pem
+plugins.security.ssl.http.pemkey_filepath: certs/node-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/root-ca.pem
+
+plugins.security.allow_default_init_securityindex: true
+plugins.security.authcz.admin_dn:
+  - "CN=admin,C=RU,L=Moscow,OU=lab2,O=lab2"
+plugins.security.nodes_dn:
+  - "CN=node1,C=RU,L=Moscow,OU=lab2,O=lab2"
+
+plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]

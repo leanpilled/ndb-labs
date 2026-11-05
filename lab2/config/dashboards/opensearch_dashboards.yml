@@ -1,0 +1,12 @@
+---
+server.host: "0.0.0.0"
+server.name: "opensearch-dashboards"
+
+opensearch.hosts: ["https://os-manager:9200", "https://os-hot1:9200", "https://os-hot2:9200", "https://os-warm1:9200"]
+opensearch.ssl.certificateAuthorities: ["/usr/share/opensearch-dashboards/certs/root-ca.pem"]
+opensearch.ssl.verificationMode: full
+
+opensearch.username: "kibanaserver"
+opensearch.password: "vCMiYSXIpFLgLfQRBb2!"
+
+opensearch_security.multitenancy.enabled: false
