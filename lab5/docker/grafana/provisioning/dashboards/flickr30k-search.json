@@ -1,0 +1,135 @@
+{
+  "title": "Qdrant: Flickr30k Vector Search",
+  "uid": "flickr30k-search",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Collections",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [{ "expr": "collections_total", "legendFormat": "collections" }]
+    },
+    {
+      "id": 2,
+      "title": "Vectors indexed",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [{ "expr": "collections_vector_total", "legendFormat": "vectors" }]
+    },
+    {
+      "id": 3,
+      "title": "Qdrant REST request rate by endpoint",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(rest_responses_total[1m])) by (method, endpoint)",
+          "legendFormat": "{{method}} {{endpoint}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Qdrant REST error rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(rest_responses_fail_total[1m])) / sum(rate(rest_responses_total[1m]))",
+          "legendFormat": "error ratio"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Qdrant REST latency p95 by endpoint",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rest_responses_duration_seconds_bucket[1m])) by (le, method, endpoint))",
+          "legendFormat": "{{method}} {{endpoint}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Qdrant REST latency p50 / p95 / p99 (all endpoints)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(rest_responses_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rest_responses_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(rest_responses_duration_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Collection vector I/O throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(collection_hardware_metric_vector_io_read[1m])", "legendFormat": "read" },
+        { "expr": "rate(collection_hardware_metric_vector_io_write[1m])", "legendFormat": "write" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Collection payload I/O throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(collection_hardware_metric_payload_io_read[1m])", "legendFormat": "payload read" },
+        { "expr": "rate(collection_hardware_metric_payload_io_write[1m])", "legendFormat": "payload write" },
+        { "expr": "rate(collection_hardware_metric_payload_index_io_read[1m])", "legendFormat": "payload index read" },
+        { "expr": "rate(collection_hardware_metric_payload_index_io_write[1m])", "legendFormat": "payload index write" }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Collection CPU usage rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        { "expr": "rate(collection_hardware_metric_cpu[1m])", "legendFormat": "{{id}}" }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Qdrant process memory",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [
+        { "expr": "memory_resident_bytes", "legendFormat": "resident" },
+        { "expr": "memory_allocated_bytes", "legendFormat": "allocated" },
+        { "expr": "memory_active_bytes", "legendFormat": "active" },
+        { "expr": "memory_metadata_bytes", "legendFormat": "metadata" },
+        { "expr": "memory_retained_bytes", "legendFormat": "retained" }
+      ]
+    }
+  ]
+}

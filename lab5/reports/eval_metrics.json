@@ -1,0 +1,10 @@
+{
+  "n_queries": 1000,
+  "recall@1": 0.255,
+  "recall@5": 0.454,
+  "recall@10": 0.54,
+  "mrr": 0.37982294372294373,
+  "median_rank": 8.0,
+  "mean_query_latency_ms": 17.542059209779836,
+  "p95_query_latency_ms": 22.769185376819223
+}
