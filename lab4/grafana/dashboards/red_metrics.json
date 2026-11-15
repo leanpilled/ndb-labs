@@ -1,0 +1,114 @@
+{
+  "title": "Shop API - RED metrics",
+  "uid": "shop-api-red",
+  "editable": true,
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-14d", "to": "now" },
+  "tags": ["lab4", "observability", "red"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "RPS by service",
+      "description": "count() / interval (3600s hourly buckets), broken down by service_name",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+          "editorType": "sql",
+          "format": 1,
+          "rawSql": "SELECT toStartOfHour(timestamp) AS time, service_name, count() / 3600 AS rps FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY time, service_name ORDER BY time"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Error rate (5xx) by endpoint",
+      "description": "countIf(status_code >= 500) / count() * 100, per endpoint",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+          "editorType": "sql",
+          "format": 1,
+          "rawSql": "SELECT toStartOfHour(timestamp) AS time, endpoint, countIf(status_code >= 500) / count() * 100 AS error_rate_pct FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY time, endpoint ORDER BY time"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Latency p50 / p95 / p99",
+      "description": "quantile(0.5/0.95/0.99)(duration_ms), overall",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 5 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+          "editorType": "sql",
+          "format": 1,
+          "rawSql": "SELECT toStartOfHour(timestamp) AS time, quantile(0.5)(duration_ms) AS p50, quantile(0.95)(duration_ms) AS p95, quantile(0.99)(duration_ms) AS p99 FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY time ORDER BY time"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Top-10 problematic endpoints (5xx count)",
+      "description": "countIf(status_code >= 500) BY endpoint, current time range",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "xField": "endpoint" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+          "editorType": "sql",
+          "format": 0,
+          "rawSql": "SELECT endpoint, countIf(status_code >= 500) AS error_count FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY endpoint ORDER BY error_count DESC LIMIT 10"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "barchart",
+      "title": "Total requests by endpoint (load ranking)",
+      "description": "count() BY endpoint, current time range -- which endpoint is most loaded",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "xField": "endpoint" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-lab4" },
+          "editorType": "sql",
+          "format": 0,
+          "rawSql": "SELECT endpoint, count() AS request_count FROM service_logs WHERE $__timeFilter(timestamp) GROUP BY endpoint ORDER BY request_count DESC LIMIT 10"
+        }
+      ]
+    }
+  ]
+}
